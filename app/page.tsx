@@ -33,7 +33,9 @@ export default function ChurnDashboard() {
     setLoading(true);
     setResult(null);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://customer-churn-backend-v2uq.onrender.com';
+    // Sanitize API URL to strip extraneous brackets, parentheses, or trailing slashes
+    const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://customer-churn-backend-v2uq.onrender.com';
+    const API_URL = rawUrl.replace(/[\[\]\(\)]/g, '').replace(/\/$/, '');
 
     try {
       const res = await fetch(`${API_URL}/predict`, {
@@ -74,7 +76,7 @@ export default function ChurnDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* KPI Cards in Navy Accent Styling */}
+        {/* Executive KPI Cards */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="p-3 bg-navy-100 rounded-lg text-navy-800">
@@ -117,7 +119,7 @@ export default function ChurnDashboard() {
           </div>
         </section>
 
-        {/* Input Form & Real-time Predictions Panel */}
+        {/* Input Form & Risk Assessment */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <div className="mb-6">
@@ -233,7 +235,7 @@ export default function ChurnDashboard() {
             </form>
           </div>
 
-          {/* Results Display */}
+          {/* Inference Results Display */}
           <div className="lg:col-span-5 bg-navy-900 text-white p-6 rounded-xl border border-navy-800 shadow-sm flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 mb-4">
