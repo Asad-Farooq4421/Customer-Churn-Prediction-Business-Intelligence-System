@@ -70,7 +70,6 @@ export default function ChurnDashboard() {
   const [result, setResult] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Batch evaluation state
   const [batchResults, setBatchResults] = useState<any[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
 
@@ -113,7 +112,6 @@ export default function ChurnDashboard() {
     }
   };
 
-  // Process uploaded CSV file dynamically
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -130,39 +128,42 @@ export default function ChurnDashboard() {
 
         try {
           const parsedRows = results.data as any[];
-          const predictions = await Promise.all(
-            parsedRows.map(async (row, index) => {
-              const payload = {
-                TenureMonths: parseInt(row.TenureMonths) || 1,
-                MonthlyCharges: parseFloat(row.MonthlyCharges) || 50.0,
-                TotalCharges: parseFloat(row.TotalCharges) || 50.0,
-                SupportTickets: parseInt(row.SupportTickets) || 0,
-                PaymentDelays: parseInt(row.PaymentDelays) || 0,
-                Contract: row.Contract || 'Month-to-month',
-                PaperlessBilling: row.PaperlessBilling || 'Yes',
-                OnlineSecurity: row.OnlineSecurity || 'No',
-                TechSupport: row.TechSupport || 'No',
-              };
+          
+          const batchPayload = parsedRows.map((row) => ({
+            TenureMonths: parseInt(row.TenureMonths) || 1,
+            MonthlyCharges: parseFloat(row.MonthlyCharges) || 50.0,
+            TotalCharges: parseFloat(row.TotalCharges) || 50.0,
+            SupportTickets: parseInt(row.SupportTickets) || 0,
+            PaymentDelays: parseInt(row.PaymentDelays) || 0,
+            Contract: row.Contract || 'Month-to-month',
+            PaperlessBilling: row.PaperlessBilling || 'Yes',
+            OnlineSecurity: row.OnlineSecurity || 'No',
+            TechSupport: row.TechSupport || 'No',
+          }));
 
-              const res = await fetch(`${API_URL}/predict`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
+          const res = await fetch(`${API_URL}/predict-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(batchPayload),
+          });
 
-              const resData = res.ok ? await res.json() : { churn_probability: 'N/A', risk_level: 'ERROR' };
-              return { 
-                id: row.CustomerID || `CUST-${1000 + index}`, 
-                name: row.CustomerName || `Account #${index + 1}`,
-                ...payload, 
-                ...resData 
-              };
-            })
-          );
+          if (!res.ok) throw new Error('Batch inference failed');
 
-          setBatchResults(predictions);
+          const predictions = await res.json();
+
+          const mergedTable = parsedRows.map((row, idx) => ({
+            id: row.CustomerID || `CUST-${1000 + idx}`,
+            name: row.CustomerName || `Account #${idx + 1}`,
+            TenureMonths: row.TenureMonths,
+            Contract: row.Contract,
+            MonthlyCharges: row.MonthlyCharges,
+            churn_probability: predictions[idx].churn_probability,
+            risk_level: predictions[idx].risk_level,
+          }));
+
+          setBatchResults(mergedTable);
         } catch (err) {
-          setErrorMessage('Failed to evaluate CSV dataset against backend API.');
+          setErrorMessage('Failed to evaluate CSV dataset against backend trained model.');
         } finally {
           setBatchLoading(false);
         }
@@ -174,7 +175,6 @@ export default function ChurnDashboard() {
     });
   };
 
-  // Download Sample CSV Template
   const downloadSampleCSV = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
       "CustomerID,CustomerName,TenureMonths,MonthlyCharges,TotalCharges,SupportTickets,PaymentDelays,Contract,PaperlessBilling,OnlineSecurity,TechSupport\n" +
@@ -262,7 +262,7 @@ export default function ChurnDashboard() {
         </section>
 
         {mode === 'single' ? (
-          /* Single Customer Assessor + Persona Presets */
+          /* Single Customer Assessor */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex justify-between items-center mb-4">
@@ -272,7 +272,6 @@ export default function ChurnDashboard() {
                 </div>
               </div>
 
-              {/* Persona Quick Selectors */}
               <div className="mb-6 grid grid-cols-3 gap-2">
                 {Object.entries(PRESETS).map(([key, val]) => (
                   <button
@@ -370,7 +369,6 @@ export default function ChurnDashboard() {
               </form>
             </div>
 
-            {/* Inference Results Output Panel */}
             <div className="lg:col-span-5 bg-navy-900 text-white p-6 rounded-xl border border-navy-800 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-4">
@@ -428,12 +426,12 @@ export default function ChurnDashboard() {
             </div>
           </div>
         ) : (
-          /* Batch CSV File Processing Mode */
+          /* Batch Mode */
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-navy-900">CSV Batch Risk Analysis</h2>
-                <p className="text-xs text-slate-500">Upload customer datasets to perform bulk churn inference.</p>
+                <p className="text-xs text-slate-500">Upload customer datasets to perform bulk churn inference with your trained model.</p>
               </div>
               
               <div className="flex items-center gap-3">
@@ -447,7 +445,7 @@ export default function ChurnDashboard() {
 
                 <label className="px-4 py-2 bg-navy-800 hover:bg-navy-900 text-white font-semibold rounded-lg text-xs flex items-center gap-2 cursor-pointer transition">
                   <Upload className="w-4 h-4" />
-                  {batchLoading ? 'Evaluating Dataset...' : 'Upload Customer CSV'}
+                  {batchLoading ? 'Running Model Inference...' : 'Upload Customer CSV'}
                   <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" disabled={batchLoading} />
                 </label>
               </div>
@@ -463,7 +461,7 @@ export default function ChurnDashboard() {
                       <th className="px-4 py-3">Tenure</th>
                       <th className="px-4 py-3">Contract</th>
                       <th className="px-4 py-3">Monthly ($)</th>
-                      <th className="px-4 py-3">Churn Score</th>
+                      <th className="px-4 py-3">Model Churn Score</th>
                       <th className="px-4 py-3">Risk Level</th>
                     </tr>
                   </thead>
@@ -494,7 +492,7 @@ export default function ChurnDashboard() {
               <div className="p-12 border-2 border-dashed border-slate-200 rounded-lg text-center space-y-3">
                 <FileSpreadsheet className="w-10 h-10 text-navy-600 mx-auto" />
                 <p className="text-sm font-semibold text-navy-900">Upload a Customer CSV File</p>
-                <p className="text-xs text-slate-400">Click "Download CSV Template" above to see the required column format.</p>
+                <p className="text-xs text-slate-400">Your pre-trained scikit-learn model will evaluate each row and display risk scores.</p>
               </div>
             )}
           </div>
