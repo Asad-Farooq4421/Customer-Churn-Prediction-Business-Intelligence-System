@@ -9,12 +9,12 @@ module.exports = {
     extend: {
       colors: {
         navy: {
-          900: '#0B192C', // Dark Base Navy
-          800: '#1E3E62', // Deep Navy
-          700: '#14273E', // Card Borders / Dark Accents
-          600: '#2A4E78', // Light Navy Blue
-          500: '#3B608C', // Interactive Navy Accent
-          100: '#EBF1F6', // Soft Tint Light Navy
+          900: '#0B192C',
+          800: '#1E3E62',
+          700: '#14273E',
+          600: '#2A4E78',
+          500: '#3B608C',
+          100: '#EBF1F6',
         },
       },
     },
